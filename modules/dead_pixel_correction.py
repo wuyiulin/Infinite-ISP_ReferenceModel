@@ -164,7 +164,6 @@ class DeadPixelCorrection:
             ]
         )
 
-        # convolve each kernel over image to compute differences
         # convolve each kernel over the CFA-padded image to compute differences
 
         diff_top_left = np.abs(correlate(self.img, ker_top_left, mode="mirror"))
