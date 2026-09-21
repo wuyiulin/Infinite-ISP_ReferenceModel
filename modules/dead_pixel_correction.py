@@ -30,10 +30,25 @@ class DeadPixelCorrection:
         self.save_out_obj = save_out_obj
 
     def padding(self):
-        """Return a mirror padded copy of image."""
+        """Return a CFA-aware mirror padded copy of image."""
 
-        img_pad = np.pad(self.img, (2, 2), "reflect")
-        return img_pad
+        return self.pad_cfa(self.img)
+
+    @staticmethod
+    def pad_cfa(img):
+        """
+        Pad each CFA channel separately by one pixel (two pixels on the raw image).
+
+        Same-color neighbours are two pixels apart on a Bayer grid, so a plain
+        mirror/reflect padding of the raw image maps the neighbour of a pixel at
+        index 1 (or N-2) back onto the pixel itself. Reflecting every same-color
+        sub-image on its own gives the nearest real same-color pixel instead.
+        """
+        padded = np.empty((img.shape[0] + 4, img.shape[1] + 4), dtype=img.dtype)
+        for row in (0, 1):
+            for col in (0, 1):
+                padded[row::2, col::2] = np.pad(img[row::2, col::2], 1, mode="reflect")
+        return padded
 
     def apply_fast_dead_pixel_correction(self):
         """This function detects and corrects Dead pixels using numpy
@@ -55,8 +70,10 @@ class DeadPixelCorrection:
             ]
         )
 
-        # The maximum and minimum filters automatically pad the input image internally,
-        # eliminating the need for manual padding.
+        # Pad each CFA channel before filtering. Every pixel of the original image
+        # then has its 5x5 window inside the padded array, so the scipy "mode"
+        # below does not affect the result after the padding is removed.
+        self.img = self.pad_cfa(self.img)
         max_value = maximum_filter(self.img, footprint=window, mode="mirror")
         min_value = minimum_filter(self.img, footprint=window, mode="mirror")
 
@@ -148,8 +165,7 @@ class DeadPixelCorrection:
         )
 
         # convolve each kernel over image to compute differences
-        # The correlate function automatically pads the input image internally,
-        # eliminating the need for manual padding.
+        # convolve each kernel over the CFA-padded image to compute differences
 
         diff_top_left = np.abs(correlate(self.img, ker_top_left, mode="mirror"))
         diff_top_mid = np.abs(correlate(self.img, ker_top_mid, mode="mirror"))
@@ -318,6 +334,8 @@ class DeadPixelCorrection:
         dpc_img = np.where(detection_mask, corrected_img, self.img)
 
         # Remove padding
+        dpc_img = dpc_img[2:-2, 2:-2]
+        detection_mask = detection_mask[2:-2, 2:-2]
         self.img = np.uint16(np.clip(dpc_img, 0, (2**self.bpp) - 1))
 
         if self.is_debug:
