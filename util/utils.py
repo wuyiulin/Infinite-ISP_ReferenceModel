@@ -303,7 +303,7 @@ class CustomDumper(yaml.Dumper):
     of the increase_indent and write_line_break methods. It ensures that indentations
     and line breaks are inserted correctly in the output YAML file."""
 
-    def increase_indent(self, flow=False, indentless=False):
+    def increase_indent(self, flow=False, indentless=False):  # pylint: disable=unused-argument
         """For indentation"""
         return super(CustomDumper, self).increase_indent(flow, False)
 
