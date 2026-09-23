@@ -10,6 +10,7 @@ import time
 import numpy as np
 from tqdm import tqdm
 from scipy.ndimage import maximum_filter, minimum_filter, correlate
+from util.utils import pad_cfa
 
 
 class DeadPixelCorrection:
@@ -28,27 +29,6 @@ class DeadPixelCorrection:
         self.threshold = parm_dpc["dp_threshold"]
         self.is_debug = parm_dpc["is_debug"]
         self.save_out_obj = save_out_obj
-
-    def padding(self):
-        """Return a CFA-aware mirror padded copy of image."""
-
-        return self.pad_cfa(self.img)
-
-    @staticmethod
-    def pad_cfa(img):
-        """
-        Pad each CFA channel separately by one pixel (two pixels on the raw image).
-
-        Same-color neighbours are two pixels apart on a Bayer grid, so a plain
-        mirror/reflect padding of the raw image maps the neighbour of a pixel at
-        index 1 (or N-2) back onto the pixel itself. Reflecting every same-color
-        sub-image on its own gives the nearest real same-color pixel instead.
-        """
-        padded = np.empty((img.shape[0] + 4, img.shape[1] + 4), dtype=img.dtype)
-        for row in (0, 1):
-            for col in (0, 1):
-                padded[row::2, col::2] = np.pad(img[row::2, col::2], 1, mode="reflect")
-        return padded
 
     def apply_fast_dead_pixel_correction(self):
         """This function detects and corrects Dead pixels using numpy
@@ -73,7 +53,7 @@ class DeadPixelCorrection:
         # Pad each CFA channel before filtering. Every pixel of the original image
         # then has its 5x5 window inside the padded array, so the scipy "mode"
         # below does not affect the result after the padding is removed.
-        self.img = self.pad_cfa(self.img)
+        self.img = pad_cfa(self.img)
         max_value = maximum_filter(self.img, footprint=window, mode="mirror")
         min_value = minimum_filter(self.img, footprint=window, mode="mirror")
 
@@ -350,8 +330,8 @@ class DeadPixelCorrection:
 
         height, width = self.sensor_info["height"], self.sensor_info["width"]
 
-        # Mirror padding is applied to self.img.
-        img_padded = np.float32(self.padding())
+        # CFA-aware padding is applied to self.img.
+        img_padded = np.float32(pad_cfa(self.img))
         dpc_img = np.empty((height, width), np.float32)
         corrected_pv_count = 0
 

@@ -11,6 +11,8 @@ import pytest
 
 sys.path.append(".")
 from modules.dead_pixel_correction import DeadPixelCorrection  # pylint: disable=C0413
+from util.utils import pad_cfa  # pylint: disable=C0413
+
 
 HEIGHT, WIDTH, BPP = 32, 32, 12
 THRESHOLD = 80
@@ -89,7 +91,7 @@ def test_pad_cfa_never_mirrors_pixel_onto_itself():
     """Same-color neighbours of row/col 1 must not be the pixel itself."""
     img = np.arange(HEIGHT * WIDTH, dtype=np.float32).reshape(HEIGHT, WIDTH)
 
-    padded = DeadPixelCorrection.pad_cfa(img)
+    padded = pad_cfa(img)
 
     assert padded.shape == (HEIGHT + 4, WIDTH + 4)
     np.testing.assert_array_equal(padded[2:-2, 2:-2], img)
